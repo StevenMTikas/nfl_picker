@@ -158,6 +158,7 @@ def analyze_teams():
         home_team = team2  # Team 2 is always home team
         
         try:
+            print("Creating FocusedTeamAnalysis instance...")
             analysis = FocusedTeamAnalysis(
                 team1=team1,
                 team2=team2,
@@ -167,8 +168,25 @@ def analyze_teams():
                 include_special_teams=include_special_teams
             )
             print("FocusedTeamAnalysis created, running analysis...")
+            print("Note: Analysis may take 1-3 minutes. Please be patient...")
+            
+            # Run analysis (Gunicorn timeout will handle long-running requests)
+            # Note: Render free tier has 30-second timeout, but Gunicorn is set to 300 seconds
             results = analysis.run_analysis()
             print("Analysis completed successfully")
+                
+        except TimeoutError as timeout_err:
+            print(f"Timeout during analysis: {timeout_err}")
+            return jsonify({
+                'error': str(timeout_err),
+                'suggestion': 'Analysis timed out. Render free tier has a 30-second request timeout. The analysis may need more time. Please try again or consider upgrading your Render plan.'
+            }), 504
+        except MemoryError as mem_err:
+            print(f"Memory error during analysis: {mem_err}")
+            return jsonify({
+                'error': 'Analysis failed due to insufficient memory',
+                'suggestion': 'The analysis requires more memory than available. Consider reducing the number of analysis options or upgrading your Render plan.'
+            }), 507
         except Exception as analysis_error:
             print(f"Error during analysis: {analysis_error}")
             traceback.print_exc()

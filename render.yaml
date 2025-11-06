@@ -3,7 +3,7 @@ services:
     name: nfl-picker
     env: python
     buildCommand: pip install -e .
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 300 --max-requests 1000 --max-requests-jitter 50
     envVars:
       - key: FLASK_ENV
         value: production

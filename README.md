@@ -49,7 +49,17 @@ The project includes a `render.yaml` configuration file. To deploy:
 3. Render will automatically detect the configuration and deploy
 
 **Build Command:** `pip install -e .`  
-**Start Command:** `gunicorn app:app --bind 0.0.0.0:$PORT`
+**Start Command:** `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 300 --max-requests 1000 --max-requests-jitter 50`
+
+**Note:** Render's free tier has limitations:
+- 30-second request timeout at the load balancer
+- 512MB memory limit
+- CrewAI analysis may exceed these limits
+
+For production use, consider:
+- Upgrading to Render's paid plan (longer timeouts, more memory)
+- Optimizing the analysis to use fewer agents
+- Using async/background job processing
 
 ---
 
