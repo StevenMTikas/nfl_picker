@@ -23,15 +23,74 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
-# Initialize databases
-db = NFLDatabase()
-stats_db = NFLStatsDatabase()
+# Initialize databases with error handling
+try:
+    db = NFLDatabase()
+    stats_db = NFLStatsDatabase()
+except Exception as e:
+    print(f"Warning: Database initialization error: {e}")
+    db = None
+    stats_db = None
+
+
+@app.before_request
+def before_request():
+    """Set content type for API routes."""
+    if request.path.startswith('/api/'):
+        # Ensure API routes return JSON
+        pass  # Flask will handle this via jsonify
+
+
+@app.after_request
+def after_request(response):
+    """Ensure API routes have correct content type."""
+    if request.path.startswith('/api/'):
+        response.headers['Content-Type'] = 'application/json'
+    return response
 
 
 @app.route('/')
 def index():
     """Main page with team analysis interface."""
     return render_template('index.html', teams=NFL_TEAMS)
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Render."""
+    try:
+        # Check if databases are initialized
+        db_status = "ok" if db is not None else "error"
+        stats_db_status = "ok" if stats_db is not None else "error"
+        
+        # Check API keys
+        import os
+        openai_key = "set" if os.getenv('OPENAI_API_KEY') else "missing"
+        serper_key = "set" if os.getenv('SERPER_API_KEY') else "missing"
+        
+        return jsonify({
+            'status': 'healthy',
+            'databases': {
+                'main_db': db_status,
+                'stats_db': stats_db_status
+            },
+            'api_keys': {
+                'openai': openai_key,
+                'serper': serper_key
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+
+@app.route('/api/test', methods=['GET'])
+def test_api():
+    """Test endpoint to verify API is working."""
+    return jsonify({
+        'status': 'ok',
+        'message': 'API is working',
+        'timestamp': datetime.now().isoformat()
+    }), 200
 
 
 @app.route('/api/teams', methods=['GET'])
@@ -43,6 +102,9 @@ def get_teams():
 @app.route('/api/team-stats', methods=['GET'])
 def get_team_stats():
     """Get statistics for selected teams."""
+    if stats_db is None:
+        return jsonify({'error': 'Stats database not initialized'}), 500
+    
     team1 = request.args.get('team1')
     team2 = request.args.get('team2')
     week = request.args.get('week', type=int) or get_current_nfl_week()
@@ -70,6 +132,10 @@ def get_team_stats():
 def analyze_teams():
     """Run analysis for two teams."""
     try:
+        # Check if databases are initialized
+        if db is None or stats_db is None:
+            return jsonify({'error': 'Database not initialized. Please check server logs.'}), 500
+        
         data = request.get_json()
         
         if not data:
@@ -88,17 +154,25 @@ def analyze_teams():
             return jsonify({'error': 'Teams must be different'}), 400
         
         # Run analysis
+        print(f"Starting analysis for {team1} vs {team2}")
         home_team = team2  # Team 2 is always home team
-        analysis = FocusedTeamAnalysis(
-            team1=team1,
-            team2=team2,
-            home_team=home_team,
-            include_injuries=include_injuries,
-            include_coaching=include_coaching,
-            include_special_teams=include_special_teams
-        )
         
-        results = analysis.run_analysis()
+        try:
+            analysis = FocusedTeamAnalysis(
+                team1=team1,
+                team2=team2,
+                home_team=home_team,
+                include_injuries=include_injuries,
+                include_coaching=include_coaching,
+                include_special_teams=include_special_teams
+            )
+            print("FocusedTeamAnalysis created, running analysis...")
+            results = analysis.run_analysis()
+            print("Analysis completed successfully")
+        except Exception as analysis_error:
+            print(f"Error during analysis: {analysis_error}")
+            traceback.print_exc()
+            raise  # Re-raise to be caught by outer try/except
         
         # Get team statistics
         week = get_current_nfl_week()
@@ -130,6 +204,9 @@ def analyze_teams():
 @app.route('/api/predictions', methods=['GET'])
 def get_predictions():
     """Get list of predictions."""
+    if db is None:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
     try:
         predictions = db.get_predictions()
         prediction_list = []
@@ -150,6 +227,9 @@ def get_predictions():
 @app.route('/api/accuracy', methods=['GET'])
 def get_accuracy():
     """Get prediction accuracy statistics."""
+    if db is None:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
     try:
         stats = db.get_accuracy_stats()
         if not stats or stats[0] == 0:
@@ -195,6 +275,9 @@ def get_accuracy():
 @app.route('/api/save-result', methods=['POST'])
 def save_result():
     """Save actual game result."""
+    if db is None:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
     data = request.get_json()
     
     game_id = data.get('game_id')
@@ -257,6 +340,10 @@ def format_team_stats(team_stats):
 
 def save_prediction_to_db(results, week):
     """Save prediction to database."""
+    if db is None:
+        print("Warning: Cannot save prediction - database not initialized")
+        return
+    
     import re
     
     team1_clean = results['team1'].replace(" ", "_").replace(".", "")
@@ -288,19 +375,22 @@ def save_prediction_to_db(results, week):
         except:
             pass
     
-    db.save_prediction(
-        game_id=game_id,
-        team1=results['team1'],
-        team2=results['team2'],
-        home_team=results['home_team'],
-        predicted_winner=predicted_winner,
-        predicted_score_home=home_score,
-        predicted_score_away=away_score,
-        confidence_level=confidence,
-        analysis_data=results,
-        week=week,
-        season=2025
-    )
+    try:
+        db.save_prediction(
+            game_id=game_id,
+            team1=results['team1'],
+            team2=results['team2'],
+            home_team=results['home_team'],
+            predicted_winner=predicted_winner,
+            predicted_score_home=home_score,
+            predicted_score_away=away_score,
+            confidence_level=confidence,
+            analysis_data=results,
+            week=week,
+            season=2025
+        )
+    except Exception as e:
+        print(f"Error saving prediction to database: {e}")
 
 
 @app.errorhandler(404)
