@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nfl-picker
+    env: python
+    buildCommand: pip install -e .
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 10000
+

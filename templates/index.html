@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Picker - AI-Powered Game Predictions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏈 NFL Picker</h1>
+            <p class="subtitle">AI-Powered Team Analysis & Game Predictions</p>
+        </header>
+
+        <main>
+            <!-- Team Selection Section -->
+            <section class="card">
+                <h2>Team Analysis</h2>
+                <div class="team-selection">
+                    <div class="form-group">
+                        <label for="team1">Team 1 (Away):</label>
+                        <select id="team1" class="team-select">
+                            <option value="">Select Team 1</option>
+                            {% for team in teams %}
+                            <option value="{{ team }}">{{ team }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div class="form-group">
+                        <label for="team2">Team 2 (Home):</label>
+                        <select id="team2" class="team-select">
+                            <option value="">Select Team 2</option>
+                            {% for team in teams %}
+                            <option value="{{ team }}">{{ team }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include_injuries" checked>
+                        Include Injury Analysis
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include_coaching" checked>
+                        Include Coaching Analysis
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include_special_teams" checked>
+                        Include Special Teams Analysis
+                    </label>
+                </div>
+
+                <button id="analyze-btn" class="btn btn-primary" onclick="runAnalysis()">
+                    Run Analysis
+                </button>
+            </section>
+
+            <!-- Results Section -->
+            <section class="card" id="results-section" style="display: none;">
+                <h2>Analysis Results</h2>
+                <div id="results-content"></div>
+            </section>
+
+            <!-- Team Stats Section -->
+            <section class="card" id="stats-section" style="display: none;">
+                <h2>Team Statistics</h2>
+                <div id="stats-content"></div>
+            </section>
+
+            <!-- Accuracy Section -->
+            <section class="card">
+                <h2>Prediction Accuracy</h2>
+                <button class="btn btn-secondary" onclick="loadAccuracy()">View Accuracy Stats</button>
+                <div id="accuracy-content"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by CrewAI • NFL Picker 2025</p>
+        </footer>
+    </div>
+
+    <div id="loading" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Running AI analysis... This may take a minute.</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
