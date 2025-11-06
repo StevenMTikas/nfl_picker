@@ -4,11 +4,10 @@ services:
     env: python
     buildCommand: pip install -e .
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 300 --max-requests 1000 --max-requests-jitter 50
+    healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
         generateValue: true
-      - key: PORT
-        value: 10000
 
