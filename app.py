@@ -69,21 +69,24 @@ def get_team_stats():
 @app.route('/api/analyze', methods=['POST'])
 def analyze_teams():
     """Run analysis for two teams."""
-    data = request.get_json()
-    
-    team1 = data.get('team1')
-    team2 = data.get('team2')
-    include_injuries = data.get('include_injuries', True)
-    include_coaching = data.get('include_coaching', True)
-    include_special_teams = data.get('include_special_teams', True)
-    
-    if not team1 or not team2:
-        return jsonify({'error': 'Both teams required'}), 400
-    
-    if team1 == team2:
-        return jsonify({'error': 'Teams must be different'}), 400
-    
     try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Invalid JSON in request body'}), 400
+        
+        team1 = data.get('team1')
+        team2 = data.get('team2')
+        include_injuries = data.get('include_injuries', True)
+        include_coaching = data.get('include_coaching', True)
+        include_special_teams = data.get('include_special_teams', True)
+        
+        if not team1 or not team2:
+            return jsonify({'error': 'Both teams required'}), 400
+        
+        if team1 == team2:
+            return jsonify({'error': 'Teams must be different'}), 400
+        
         # Run analysis
         home_team = team2  # Team 2 is always home team
         analysis = FocusedTeamAnalysis(
@@ -120,7 +123,8 @@ def analyze_teams():
     except Exception as e:
         error_msg = str(e)
         traceback.print_exc()
-        return jsonify({'error': error_msg}), 500
+        # Ensure we always return JSON
+        return jsonify({'error': error_msg, 'type': type(e).__name__}), 500
 
 
 @app.route('/api/predictions', methods=['GET'])
@@ -301,12 +305,29 @@ def save_prediction_to_db(results, week):
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({'error': 'Not found'}), 404
+    # Check if it's an API request
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return render_template('index.html', teams=NFL_TEAMS), 404
 
 
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+    # Check if it's an API request
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error', 'message': str(error)}), 500
+    return render_template('index.html', teams=NFL_TEAMS), 500
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Check if it's an API request
+    if request.path.startswith('/api/'):
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
+    # For non-API requests, return the error page
+    traceback.print_exc()
+    return render_template('index.html', teams=NFL_TEAMS), 500
 
 
 if __name__ == '__main__':

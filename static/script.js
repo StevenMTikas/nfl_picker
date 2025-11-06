@@ -38,6 +38,13 @@ async function runAnalysis() {
             })
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response. Status: ${response.status}. Response: ${text.substring(0, 200)}`);
+        }
+
         const data = await response.json();
 
         if (!response.ok) {
@@ -48,7 +55,8 @@ async function runAnalysis() {
         loadTeamStats(team1, team2);
 
     } catch (error) {
-        showError(error.message);
+        console.error('Analysis error:', error);
+        showError(error.message || 'Failed to run analysis. Please check server logs.');
     } finally {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('analyze-btn').disabled = false;
@@ -101,6 +109,14 @@ function displayResults(results) {
 async function loadTeamStats(team1, team2) {
     try {
         const response = await fetch(`${API_BASE}/api/team-stats?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Team stats: Non-JSON response received');
+            return;
+        }
+        
         const data = await response.json();
 
         if (response.ok && data.stats) {
@@ -145,6 +161,14 @@ async function loadAccuracy() {
 
     try {
         const response = await fetch(`${API_BASE}/api/accuracy`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}`);
+        }
+        
         const data = await response.json();
 
         if (!response.ok) {
